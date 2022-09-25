@@ -87,7 +87,7 @@ async function createPost({ authorId, title, content }) {
     }
 };
 
-async function updatePost( id, fields = {} ) {
+async function updatePost(id, fields = {}) {
 
     const setString = Object.keys(fields).map(
         (key, index) => `"${key}"=$${index + 1}`
@@ -118,8 +118,8 @@ async function getAllPosts() {
         SELECT *
         FROM posts;
       `);
-  
-      return rows;
+
+        return rows;
     }
     catch (err) {
         console.log('getAllPosts-index.js FAILED:', err);
@@ -131,15 +131,46 @@ async function getPostsByUser(userId) {
         const { rows } = await client.query(`
         SELECT * 
         FROM posts
-        WHERE "authorId"=${ userId };
+        WHERE "authorId"=${userId};
       `);
-  
-      return rows;
+
+        return rows;
     }
     catch (err) {
         console.log('getPostsByUser-index.js FAILED:', err);
     }
 };
+
+// async function createTags(tagList) {
+//     if (tagList.length === 0) {
+//         return;
+//     };
+
+//     const insertValues = tagList.map(
+//         (_, index) => `$${index + 1}`
+//     ).join('), (');
+
+//     const selectValues = tagList.map(
+//         (_, index) => `$${index + 1}`
+//     ).join(', ');
+
+//     try {
+//         const { rows } = await client.query(`
+//         INSERT INTO tags(name)
+//         VALUES($1), ($2), ($3)
+//         ON CONFLICT(name) DO NOTHING;
+
+//         SELECT * FROM tags
+//         WHERE name
+//         IN ($1, $2, $3);
+//     `);
+
+//         return rows;
+//     }
+//     catch (err) {
+//         console.log('createTags-index.js FAILED:', err);
+//     };
+// };
 
 
 module.exports = {
