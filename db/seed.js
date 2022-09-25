@@ -1,14 +1,22 @@
 const { client,
     getAllUsers,
     createUser,
-    updateUser
+    updateUser,
+    getUserById,
+    createPost,
+    updatePost,
+    getAllPosts,
+    getPostsByUser
 } = require('./index');
 
 async function dropTables() {
     try {
         console.log('--ATTEMPTING TO DROP TABLES--');
 
-        await client.query(`DROP TABLE IF EXISTS users;`);
+        await client.query(`
+        DROP TABLE IF EXISTS posts;
+        DROP TABLE IF EXISTS users;
+        `);
 
         console.log('--SUCCESSFULLY DROPPED TABLES--');
     }
@@ -30,6 +38,14 @@ async function createTables() {
             location varchar(255) NOT NULL,
             active BOOLEAN DEFAULT true
           );
+        
+        CREATE TABLE posts (
+            id SERIAL PRIMARY KEY,
+            "authorId" INTEGER REFERENCES users(id) NOT NULL,
+            title varchar(255) NOT NULL,
+            content TEXT NOT NULL,
+            active BOOLEAN DEFAULT true
+          );
         `);
         console.log('--SUCCESSFULLY CREATED TABLES--');
     }
@@ -42,15 +58,60 @@ async function createInitUsers() {
     try {
         console.log('--ATTEMPTING TO CREATE USERS--');
 
-        const albert = await createUser({ username: 'albert', password: 'bertie99', name: 'Bert', location: 'Baltimore' });
-        const sandra = await createUser({ username: 'sandra', password: '2sandy4me', name: 'Sandy', location: 'New York' });
-        const glamgal = await createUser({ username: 'glamgal', password: 'soglam', name: 'Drab', location: 'Sydney' });
-        console.log('USERS:', albert, sandra, glamgal);
+        const albert = await createUser({
+            username: 'albert',
+            password: 'bertie99',
+            name: 'Bert',
+            location: 'Baltimore'
+        });
+        const sandra = await createUser({
+            username: 'sandra',
+            password: '2sandy4me',
+            name: 'Sandy',
+            location: 'New York'
+        });
+        const glamgal = await createUser({
+            username: 'glamgal',
+            password: 'soglam',
+            name: 'Drab',
+            location: 'Sydney'
+        });
 
         console.log('--SUCCESSFULLY CREATED USERS--');
     }
     catch (err) {
         console.log('createInitUsers FAILED:', err);
+    }
+};
+
+async function createInitPosts() {
+    try {
+        const [albert, sandra, glamgal] = await getAllUsers();
+
+        console.log('--ATTEMPTING TO CREATE POSTS--');
+
+        await createPost({
+            authorId: albert.id,
+            title: 'First Post',
+            content: 'My first post, please like it :)'
+        });
+
+        await createPost({
+            authorId: sandra.id,
+            title: 'Am I doing this right?',
+            content: "Seriously I can't tell"
+        });
+
+        await createPost({
+            authorId: glamgal.id,
+            title: 'True Glam',
+            content: 'Always glam all the time'
+        });
+
+        console.log('--SUCCESSFULLY CREATED POSTS--');
+    }
+    catch (err) {
+        console.log('createInitPosts FAILED:', err);
     }
 };
 
@@ -61,6 +122,7 @@ async function rebuildDB() {
         await dropTables();
         await createTables();
         await createInitUsers();
+        await createInitPosts();
 
         console.log('--SUCCESSFULLY REBUILT DB--');
     }
@@ -75,16 +137,27 @@ async function testDB() {
 
         const users = await getAllUsers()
 
-        console.log('getAllUsers result:', users)
+        console.log('GET/ALL/USERS Result:', users)
 
-        console.log("Calling updateUser on users[0]")
         const updateUserResult = await updateUser(users[0].id, {
             name: "Newname Sogood",
             location: "Lesterville, KY"
         });
-        console.log("UPDATE Result:", updateUserResult);
+        console.log("UPDATE/USER Result:", updateUserResult);
 
-        console.log('--FINISHED DB TEST--');
+        const posts = await getAllPosts();
+        console.log('GET/ALL/POSTS Result:', posts);
+
+        const updatePostResult = await updatePost(posts[0].id, {
+            title: 'New Title',
+            content: 'Updated Content'
+        });
+        console.log('UPDATE/POST Result:', updatePostResult);
+
+        const albert = await getUserById(1);
+        console.log('GET/USER/BY/ID Result:', albert);
+
+        console.log('--FINISHED DB TESTS--');
     }
     catch (err) {
         console.error('testDB FAILED:', err);
