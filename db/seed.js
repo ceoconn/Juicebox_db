@@ -1,5 +1,6 @@
 const { client,
-    getAllUsers
+    getAllUsers,
+    createUser
 } = require('./index');
 
 async function dropTables() {
@@ -35,12 +36,29 @@ async function createTables() {
     }
 };
 
+async function createInitUsers() {
+    try {
+        console.log('--ATTEMPTING TO CREATE USERS--');
+
+        const albert = await createUser({ username: 'albert', password: 'bertie99' });
+        const sandra = await createUser({ username: 'sandra', password: '2sandy4me' });
+        const glamgal = await createUser({ username: 'glamgal', password: 'soglam' });
+        console.log('USERS:', albert, sandra, glamgal);
+
+        console.log('--SUCCESSFULLY CREATED USERS--');
+    }
+    catch (err) {
+        console.log('createInitUsers FAILED:', err);
+    }
+};
+
 async function rebuildDB() {
     try {
         client.connect(); //connects the client to the db
 
         await dropTables();
         await createTables();
+        await createInitUsers();
 
         console.log('--SUCCESSFULLY REBUILT DB--');
     }
@@ -67,4 +85,4 @@ async function testDB() {
 rebuildDB()
     .then(testDB)
     .catch(console.err)
-    .finally( () => client.end() );
+    .finally(() => client.end());
