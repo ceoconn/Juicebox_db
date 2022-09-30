@@ -141,36 +141,36 @@ async function getPostsByUser(userId) {
     }
 };
 
-// async function createTags(tagList) {
-//     if (tagList.length === 0) {
-//         return;
-//     };
+async function createTags(tagList) {
+    if (tagList.length === 0) {
+        return;
+    };
 
-//     const insertValues = tagList.map(
-//         (_, index) => `$${index + 1}`
-//     ).join('), (');
+    const insertValues = tagList.map(
+        (_, index) => `$${index + 1}`
+    ).join('), (');
 
-//     const selectValues = tagList.map(
-//         (_, index) => `$${index + 1}`
-//     ).join(', ');
+    const selectValues = tagList.map(
+        (_, index) => `$${index + 1}`
+    ).join(', ');
 
-//     try {
-//         const { rows } = await client.query(`
-//         INSERT INTO tags(name)
-//         VALUES($1), ($2), ($3)
-//         ON CONFLICT(name) DO NOTHING;
+    try {
+        const { rows } = await client.query(`
+        INSERT INTO tags(name)
+        VALUES($1), ($2), ($3)
+        ON CONFLICT(name) DO NOTHING;
 
-//         SELECT * FROM tags
-//         WHERE name
-//         IN ($1, $2, $3);
-//     `);
+        SELECT * FROM tags
+        WHERE name
+        IN ($1, $2, $3);
+    `);
 
-//         return rows;
-//     }
-//     catch (err) {
-//         console.log('createTags-index.js FAILED:', err);
-//     };
-// };
+        return rows;
+    }
+    catch (err) {
+        console.log('createTags-index.js FAILED:', err);
+    };
+};
 
 
 module.exports = {
