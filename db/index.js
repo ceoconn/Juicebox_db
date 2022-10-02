@@ -1,7 +1,7 @@
 // should contain helper functions for the rest of the app to use
 const { Client } = require('pg'); //imports the pg module
 
-const client = new Client('postgres://localhost:5432/juicebox-dev');
+const client = new Client(process.env.DATABASE_URL || 'postgres://localhost:5432/juicebox-dev');
 
 async function getAllUsers() {
     const { rows } = await client.query(`SELECT id, username, name, location, active FROM users`);
@@ -285,7 +285,7 @@ async function getAllTags() {
         SELECT *
         FROM tags;
       `);
-
+console.log(rows)
         return rows;
     }
     catch (err) {
