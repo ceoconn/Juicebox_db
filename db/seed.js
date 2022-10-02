@@ -6,7 +6,10 @@ const { client,
     createPost,
     updatePost,
     getAllPosts,
-    getPostsByUser
+    getPostsByUser,
+    createTags,
+    addTagsToPost,
+    getPostsByTagName,
 } = require('./index');
 
 async function dropTables() {
@@ -105,19 +108,22 @@ async function createInitPosts() {
         await createPost({
             authorId: albert.id,
             title: 'First Post',
-            content: 'My first post, please like it :)'
+            content: 'My first post, please like it :)',
+            tags: ["#happy", "#youcandoanything"]
         });
 
         await createPost({
             authorId: sandra.id,
             title: 'Am I doing this right?',
-            content: "Seriously I can't tell"
+            content: "Seriously I can't tell",
+            tags: ["#happy", "#worst-day-ever"]
         });
 
         await createPost({
             authorId: glamgal.id,
             title: 'True Glam',
-            content: 'Always glam all the time'
+            content: 'Always glam all the time',
+            tags: ["#happy", "#youcandoanything", "#canmandoeverything"]
         });
 
         console.log('--SUCCESSFULLY CREATED POSTS--');
@@ -165,6 +171,14 @@ async function testDB() {
             content: 'Updated Content'
         });
         console.log('UPDATE/POST Result:', updatePostResult);
+
+        const updatePostTagsResult = await updatePost(posts[1].id, {
+          tags: ["#youcandoanything", "#redfish", "#bluefish"]
+        });
+        console.log("UPDATE/POST/TAGS Result:", updatePostTagsResult);
+
+        const postsWithHappy = await getPostsByTagName("#happy");
+        console.log("GET/POSTS/BY/TAG/NAME Result:", postsWithHappy);
 
         const albert = await getUserById(1);
         console.log('GET/USER/BY/ID Result:', albert);

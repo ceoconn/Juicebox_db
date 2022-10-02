@@ -21,7 +21,7 @@ async function createUser({ username, password, name, location }) {
         return user;
     }
     catch (err) {
-        console.log('createUser-index.js FAILED:', err);
+        console.log('createUser-db-index.js FAILED:', err);
     }
 };
 
@@ -47,7 +47,7 @@ async function updateUser(id, fields = {}) {
         return user;
     }
     catch (err) {
-        console.log('updateUser-index.js FAILED:', err)
+        console.log('updateUser-db-index.js FAILED:', err)
     }
 };
 
@@ -68,11 +68,11 @@ async function getUserById(userId) {
         return user;
     }
     catch (err) {
-        console.log('getUserById-index.js FAILED:', err);
+        console.log('getUserById-db-index.js FAILED:', err);
     }
 };
 
-async function createPost({ authorId, title, content }) {
+async function createPost({ authorId, title, content, tags = [] }) {
     try {
         const { rows: post } = await client.query(`
         INSERT INTO posts("authorId", title, content)
@@ -80,66 +80,113 @@ async function createPost({ authorId, title, content }) {
         RETURNING *;
       `, [authorId, title, content]);
 
-        return post;
+      const tagList = await createTags(tags);
+
+        return await addTagsToPost(post.id, tagList);
     }
     catch (err) {
-        console.log('createPost-index.js FAILED:', err);
+        console.log('createPost-db-index.js FAILED:', err);
     }
 };
 
-async function updatePost(id, fields = {}) {
+async function updatePost(postId, fields = {}) {
+    const { tags } = fields;
+    delete fields.tags;
 
     const setString = Object.keys(fields).map(
         (key, index) => `"${key}"=$${index + 1}`
     ).join(', ');
 
-    if (setString.length === 0) {
-        return;
-    };
-
     try {
-        const { rows: [post] } = await client.query(`
+        if (setString.length > 0) {
+            await client.query(`
             UPDATE posts
-            SET ${setString}
-            WHERE id=${id}
+            SET ${ setString }
+            WHERE id=${ postId }
             RETURNING *;
-          `, Object.values(fields));
+            `, Object.values(fields));
+        };
 
-        return post;
+        if (tags === undefined) {
+            return await getPostById(postId);
+        };
+
+        const tagList = await createTags(tags);
+        const tagListIdString = tagList.map(
+            tag => `${ tag.id }`
+        ).join(', ');
+
+        await client.query(`
+        DELETE FROM post_tags
+        WHERE "tagId"
+        NOT IN (${ tagListIdString })
+        AND "postId"=$1;
+        `, [postId]);
+
+        await addTagsToPost(postId, tagList);
+
+        return await getPostById(postId);
     }
     catch (err) {
-        console.log('updatePost-index.js FAILED:', err);
+        console.log('updatePost-db-index.js FAILED:', err);
     }
 };
 
 async function getAllPosts() {
     try {
-        const { rows } = await client.query(`
+        const { rows: postIds } = await client.query(`
         SELECT *
         FROM posts;
       `);
 
-        return rows;
+      const posts = await Promise.all(postIds.map(
+        post => getPostById( post.id )
+      ));
+
+        return posts;
     }
     catch (err) {
-        console.log('getAllPosts-index.js FAILED:', err);
+        console.log('getAllPosts-db-index.js FAILED:', err);
     }
 };
 
 async function getPostsByUser(userId) {
     try {
-        const { rows } = await client.query(`
+        const { rows: postIds } = await client.query(`
         SELECT * 
         FROM posts
         WHERE "authorId"=${userId};
       `);
 
-        return rows;
+      const posts = await Promise.all(postIds.map(
+        post => getPostsById( post.id )
+      ));
+
+        return posts;
     }
     catch (err) {
-        console.log('getPostsByUser-index.js FAILED:', err);
+        console.log('getPostsByUser-db-index.js FAILED:', err);
     }
 };
+
+async function getPostsByTagName(tagName) {
+    try {
+      const { rows: postIds } = await client.query(`
+        SELECT posts.id
+        FROM posts
+        JOIN post_tags ON posts.id=post_tags."postId"
+        JOIN tags ON tags.id=post_tags."tagId"
+        WHERE tags.name=$1;
+      `, [tagName]);
+  
+      return await Promise.all(postIds.map(
+        post => getPostById(post.id)
+      ));
+    } 
+    catch (err) {
+      console.log('getPostsByTagName-db-index.js', err);
+    }
+  };
 
 async function createTags(tagList) {
     if (tagList.length === 0) {
@@ -147,31 +194,104 @@ async function createTags(tagList) {
     };
 
     const insertValues = tagList.map(
-        (_, index) => `$${index + 1}`
-    ).join('), (');
+        (index) => `$${index + 1}`).join('), (');
 
     const selectValues = tagList.map(
-        (_, index) => `$${index + 1}`
-    ).join(', ');
+        (index) => `$${index + 1}`).join(', ');
 
     try {
         const { rows } = await client.query(`
         INSERT INTO tags(name)
-        VALUES($1), ($2), ($3)
-        ON CONFLICT(name) DO NOTHING;
+        VALUES ${insertValues}
+        ON CONFLICT (name) DO NOTHING;
 
         SELECT * FROM tags
         WHERE name
-        IN ($1, $2, $3);
+        IN ${selectValues};
     `);
 
         return rows;
     }
     catch (err) {
-        console.log('createTags-index.js FAILED:', err);
+        console.log('createTags-db-index.js FAILED:', err);
     };
 };
 
+async function createPostTag(postId, tagId) {
+    try {
+        await client.query(`
+        INSERT INTO post_tags("postId", "tagId")
+        VALUES ($1, $2)
+        ON CONFLICT ("postId", "tagId") DO NOTHING;
+      `, [postId, tagId]);
+
+    }
+    catch (err) {
+        console.log('createPostTag-db-index.js FAILED:', err);
+    }
+};
+
+async function getPostById(postId) {
+    try {
+      const { rows: [ post ]  } = await client.query(`
+        SELECT *
+        FROM posts
+        WHERE id=$1;
+      `, [postId]);
+  
+      const { rows: tags } = await client.query(`
+        SELECT tags.*
+        FROM tags
+        JOIN post_tags ON tags.id=post_tags."tagId"
+        WHERE post_tags."postId"=$1;
+      `, [postId])
+  
+      const { rows: [author] } = await client.query(`
+        SELECT id, username, name, location
+        FROM users
+        WHERE id=$1;
+      `, [post.authorId])
+  
+      post.tags = tags;
+      post.author = author;
+  
+      delete post.authorId;
+  
+      return post;
+    } 
+    catch (err) {
+      console.log('getPostById-db-index.js FAILED:', err);
+    }
+  };
+
+async function addTagsToPost(postId, tagList) {
+    try {
+        const createPostTagPromises = tagList.map(
+            tag => createPostTag(postId, tag.id)
+        );
+
+        await Promise.all(createPostTagPromises);
+
+        return await getPostById(postId);
+    }
+    catch (err) {
+        console.log('addTagsToPost-db-index.js FAILED:', err);
+    }
+};
+
+async function getAllTags() {
+    try {
+        const { rows } = await client.query(`
+        SELECT *
+        FROM tags;
+      `);
+
+        return rows;
+    }
+    catch (err) {
+        console.log('getAllTags-db-index.js FAILED:', err);
+    }
+};
 
 module.exports = {
     client,
@@ -183,5 +303,9 @@ module.exports = {
     updatePost,
     getAllPosts,
     getPostsByUser,
+    createTags,
+    addTagsToPost,
+    getPostsByTagName,
+    getAllTags
 }
 //allows access to the db
